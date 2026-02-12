@@ -36,7 +36,8 @@ Tested on English prose of varying sizes. GPU: NVIDIA GTX 1050 Ti.
 
 - **Nacrith achieves ~14-15% ratio** on English text — roughly **2.5x better than gzip** and **2.3x better than xz**, even at the 100KB scale.
 - Nacrith saves **85% of space** consistently across all tested sizes, while gzip saves ~53-61% and xz saves ~50-65%.
-- Trade-off: compression speed is slower (~21 tokens/sec on GPU) since each token requires a neural network forward pass.
+- Trade-off: compression speed is slower (~21 tokens/sec on GPU) since each token requires a neural network forward pass. Benchmarks were run on a low-end NVIDIA GTX 1050 Ti — with a modern GPU, compression and decompression would be significantly faster.
+- The model uses ~1.3 GB of VRAM during compression/decompression, so any CUDA-capable GPU with at least 2 GB of VRAM will work. Falls back to CPU if no GPU is available.
 - All results are **fully lossless** — decompressed output matches the original byte-for-byte.
 
 ### Beyond the Shannon Entropy Limit
