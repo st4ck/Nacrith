@@ -2,6 +2,10 @@
   <img src="assets/banner.png" alt="Nacrith">
 </p>
 
+<p align="center">
+  <a href="https://nacrith.com">Website</a> · <a href="assets/nacrith_paper.pdf">Technical Paper (PDF)</a>
+</p>
+
 ### Neural Arithmetic Compression — A Game-Changer in Text Encoding
 
 **Nacrith** is a **state-of-the-art lossless** text compression system that delivers exceptional results by combining the predictive power of a neural language model with the mathematical precision of arithmetic coding. Where traditional compressors see bytes, Nacrith *understands language* — achieving compression ratios **far below the classical Shannon entropy limits** and **3-4x better than gzip, xz, and zip**.
