@@ -5,3 +5,4 @@ venv/
 *.nc
 *.txt
 !requirements.txt
+generate_paper.py
