@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" width="200" alt="Nacrith Logo">
+</p>
+
 # Nacrith
 
 ### Neural Arithmetic Compression — A Game-Changer in Text Encoding
