@@ -11,15 +11,27 @@ from utils import format_size
 
 
 def cmd_compress(args):
-    with open(args.input, 'r', encoding='utf-8') as f:
-        text = f.read()
+    binary_mode = False
+    try:
+        with open(args.input, 'r', encoding='utf-8') as f:
+            text = f.read()
+        raw = text.encode('utf-8')
+    except UnicodeDecodeError:
+        binary_mode = True
+        with open(args.input, 'rb') as f:
+            raw = f.read()
 
-    original_size = len(text.encode('utf-8'))
+    original_size = len(raw)
     print(f"Original: {format_size(original_size)}")
+    if binary_mode:
+        print("Mode: binary (hybrid)")
 
     nc = NeuralCompressor(verbose=True)
     start = time.time()
-    compressed = nc.compress(text)
+    if binary_mode:
+        compressed = nc.compress_bytes(raw)
+    else:
+        compressed = nc.compress(text)
     elapsed = time.time() - start
 
     with open(args.output, 'wb') as f:
@@ -38,23 +50,35 @@ def cmd_decompress(args):
 
     nc = NeuralCompressor(verbose=True)
     start = time.time()
-    text = nc.decompress(data)
+    result = nc.decompress(data)
     elapsed = time.time() - start
 
-    with open(args.output, 'w', encoding='utf-8') as f:
-        f.write(text)
-
-    print(f"Decompressed: {format_size(len(text.encode('utf-8')))}")
+    if isinstance(result, bytes):
+        with open(args.output, 'wb') as f:
+            f.write(result)
+        print(f"Decompressed: {format_size(len(result))} (binary)")
+    else:
+        with open(args.output, 'w', encoding='utf-8') as f:
+            f.write(result)
+        print(f"Decompressed: {format_size(len(result.encode('utf-8')))}")
     print(f"Time: {elapsed:.1f}s")
 
 
 def cmd_benchmark(args):
-    with open(args.input, 'r', encoding='utf-8') as f:
-        text = f.read()
+    binary_mode = False
+    try:
+        with open(args.input, 'r', encoding='utf-8') as f:
+            text = f.read()
+        raw = text.encode('utf-8')
+    except UnicodeDecodeError:
+        binary_mode = True
+        with open(args.input, 'rb') as f:
+            raw = f.read()
 
-    raw = text.encode('utf-8')
     original_size = len(raw)
     print(f"Original: {format_size(original_size)}")
+    if binary_mode:
+        print("Mode: binary (hybrid)")
 
     # gzip
     gzip_data = gzip.compress(raw, compresslevel=9)
@@ -64,7 +88,10 @@ def cmd_benchmark(args):
     # Neural
     nc = NeuralCompressor(verbose=True)
     start = time.time()
-    compressed = nc.compress(text)
+    if binary_mode:
+        compressed = nc.compress_bytes(raw)
+    else:
+        compressed = nc.compress(text)
     elapsed = time.time() - start
     nc_size = len(compressed)
     print(f"Neural:   {format_size(nc_size)} (ratio: {nc_size/original_size:.4f})")

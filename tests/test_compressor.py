@@ -73,3 +73,34 @@ def test_magic_bytes(compressor):
 def test_roundtrip_numbers(compressor):
     text = "The year 2024 had 365 days and 12 months."
     assert compressor.decompress(compressor.compress(text)) == text
+
+
+@pytest.mark.slow
+def test_roundtrip_binary(compressor):
+    """Binary data should roundtrip through compress_bytes/decompress."""
+    data = bytes(range(256)) * 4  # 1024 bytes with all byte values
+    compressed = compressor.compress_bytes(data)
+    assert compressed[:4] == b"NC02"
+    result = compressor.decompress(compressed)
+    assert isinstance(result, bytes)
+    assert result == data
+
+
+@pytest.mark.slow
+def test_roundtrip_binary_empty(compressor):
+    """Empty binary data should roundtrip."""
+    compressed = compressor.compress_bytes(b"")
+    assert compressed[:4] == b"NC02"
+    result = compressor.decompress(compressed)
+    assert result == b""
+
+
+@pytest.mark.slow
+def test_nc01_backward_compat(compressor):
+    """NC01 files should still decompress to str."""
+    text = "backward compat test"
+    compressed = compressor.compress(text)
+    assert compressed[:4] == b"NC01"
+    result = compressor.decompress(compressed)
+    assert isinstance(result, str)
+    assert result == text

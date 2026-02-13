@@ -106,13 +106,63 @@ Both sides run the **exact same model with the exact same weights**, producing i
 
 ---
 
+## Binary File Compression (NC02)
+
+Nacrith also supports compressing **binary files** such as PDFs, executables, and other non-UTF-8 data using a hybrid chunked approach. Binary mode is activated automatically when the input file is not valid UTF-8.
+
+### How It Works
+
+Binary files are rarely pure binary — they often contain significant amounts of embedded text (strings, metadata, markup, code). Nacrith exploits this by **segmenting** the input into text and binary chunks, then compressing each with the best method for its type.
+
+**1. Byte classification and segmentation**
+
+Every byte is classified as text-like (printable ASCII 32-126, plus tab/LF/CR) or binary. Contiguous runs of the same type are grouped, then refined through several passes:
+
+- Short text runs (< 64 bytes) are demoted to binary — too small to benefit from neural compression.
+- Small binary gaps (< 8 bytes) between text runs are bridged — keeping the text chunk contiguous.
+- Small binary chunks (< 64 bytes) adjacent to text are absorbed — avoiding fragment overhead.
+
+The result is a clean sequence of alternating text and binary chunks.
+
+**2. Binary blob compression**
+
+All binary chunks are merged into a single blob and compressed with **lzma** (for blobs >= 4 KB) or **gzip** (for smaller blobs). If neither reduces the size, the raw bytes are stored as-is.
+
+**3. Neural text compression**
+
+Each text chunk is decoded as Latin-1 and compressed individually using the same LLM + arithmetic coding pipeline as pure text mode. The model resets its context between chunks.
+
+**4. NC02 file format**
+
+The compressed output uses the `NC02` format:
+
+| Section | Description |
+|---------|-------------|
+| File header (12 bytes) | Magic `NC02` + version (uint32) + entry count (uint32) |
+| Entry table | Per chunk: type byte (`T`/`B`) + original length (uint32) |
+| Binary section | Compression method (`G`/`L`/`R`) + compressed length + data |
+| Text streams | Per text chunk: token count + bit count + stream length + arithmetic-coded data |
+
+### Compression effectiveness on binary files
+
+The compression ratio on binary files depends heavily on the **proportion of meaningful text** in the file. Files with large text regions (e.g., PDFs with embedded text content, HTML, XML, source code archives) will see significant compression gains on those regions. Files that are mostly opaque binary data (images, video, already-compressed archives) will see little to no improvement over gzip/lzma, since the neural model cannot predict non-text byte patterns.
+
+| File type | Expected result |
+|-----------|----------------|
+| Text-heavy PDFs, HTML, XML | Good — large text chunks benefit from neural compression |
+| Source code archives | Good — code is highly predictable for the LLM |
+| Compressed archives (zip, gz) | Poor — already compressed, no text to exploit |
+| Images, video, audio | Poor — almost entirely binary, falls back to gzip/lzma |
+
+---
+
 ## Project Structure
 
 ```
 Nacrith/
 ├── arithmetic_coder.py    # Arithmetic encoder/decoder (32-bit precision)
 ├── model_wrapper.py       # SmolLM2-135M wrapper with GPU/CPU fallback
-├── compressor.py          # Main NeuralCompressor class
+├── compressor.py          # NeuralCompressor class (NC01 text + NC02 binary)
 ├── cli.py                 # Command-line interface
 ├── utils.py               # CDF conversion, helpers
 ├── benchmark.py           # Benchmark script
@@ -123,6 +173,7 @@ Nacrith/
 └── tests/
     ├── conftest.py        # Shared fixtures
     ├── test_arithmetic.py # Arithmetic coder tests (fast, no model)
+    ├── test_chunking.py   # Binary segmentation tests (fast, no model)
     ├── test_model.py      # Model wrapper tests (slow)
     └── test_compressor.py # Full pipeline tests (slow)
 ```
@@ -161,10 +212,18 @@ pip install pytest
 
 ## Usage
 
-### Compress a file
+### Compress a text file
 
 ```bash
 python cli.py compress input.txt output.nc
+```
+
+### Compress a binary file
+
+Binary mode is detected automatically when the file is not valid UTF-8:
+
+```bash
+python cli.py compress document.pdf output.nc
 ```
 
 ### Decompress a file
@@ -220,9 +279,13 @@ python -m pytest -v -m slow
 python -m pytest -v
 ```
 
-## Compressed File Format
+## Compressed File Formats
 
-Files use the `.nc` extension (Nacrith Compressed) with the following binary format:
+Files use the `.nc` extension (Nacrith Compressed). Two formats are used depending on the input:
+
+### NC01 — Text mode
+
+Used for valid UTF-8 text files.
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
@@ -231,11 +294,15 @@ Files use the `.nc` extension (Nacrith Compressed) with the following binary for
 | 8 | 4 bytes | Bit count | Number of compressed bits (uint32, big-endian) |
 | 12 | variable | Stream | Arithmetic-coded bitstream |
 
+### NC02 — Binary mode
+
+Used for non-UTF-8 files. See [Binary File Compression](#binary-file-compression-nc02) for details on the hybrid chunked format.
+
 ## Limitations
 
 - **Speed**: Compression/decompression requires one neural network forward pass per token. On a GTX 1050 Ti, this is ~21 tokens/second. Much slower than traditional compressors.
 - **Model overhead**: The model weights (~259 MB) must be available on both the compressor and decompressor side. This is amortized over many files but makes this impractical for compressing small individual files in isolation.
-- **Text only**: Currently designed for UTF-8 text. Binary data would not benefit from the language model's predictions.
+- **Binary files are not always compressible**: Neural compression excels on text. Binary files only benefit in proportion to their embedded text content. Files that are already compressed (zip, gz, jpeg) or mostly opaque binary data will not compress well — in some cases the output may be larger than the input.
 - **Context window**: The model has a 2048-token context window. For very long texts, a chunked sliding window is used, which may slightly reduce compression efficiency at window boundaries.
 
 ## Theory
