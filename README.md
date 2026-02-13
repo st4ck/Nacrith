@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://nacrith.com">Website</a> · <a href="assets/nacrith_paper.pdf">Technical Paper (PDF)</a>
+  <a href="https://nacrith.com">Website</a> · <a href="assets/nacrith_paper.pdf">Technical Paper (PDF)</a> · <a href="https://huggingface.co/spaces/robtacconelli/Nacrith">Try on Hugging Face</a>
 </p>
 
 ### Neural Arithmetic Compression — A Game-Changer in Text Encoding
