@@ -139,7 +139,7 @@ Nacrith/
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/Nacrith.git
+git clone https://github.com/st4ck/Nacrith.git
 cd Nacrith
 
 # Create and activate virtual environment
